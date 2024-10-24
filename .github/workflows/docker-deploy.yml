@@ -25,4 +25,4 @@ jobs:
           with:
             push: true
             context: .
-            tags: ${{ secrets.DOCKER_USERNAME }}/air-quality-app:latest
+            tags: ${{ secrets.DOCKER_USERNAME }}/air-stylua-backend:latest
