@@ -74,13 +74,13 @@ async def start(message: Message):
         await message.answer("Пожалуйста, укажите координаты в формате: /start lon36.19lat51.73")
 
 # Функция отправки уведомлений
+# Обновленная функция отправки уведомлений
 async def send_notifications():
     logging.info("Функция send_notifications запущена")
     while True:
         try:
-            # Логика пробежки по базе данных и проверки условий загрязнения
             with get_db() as db:
-                users = crud.get_all_subscriptions(db)  # Получаем всех подписчиков
+                users = crud.get_all_subscriptions(db)
                 logging.info(f"Получено {len(users)} подписчиков")
                 for user in users:
                     user_id = user.telegram_id
@@ -89,9 +89,13 @@ async def send_notifications():
                     lat = user.lat
                     previous_aqi = user.current_aqi  # Получаем предыдущий AQI
 
+                    # Логируем получение текущего AQI
+                    logging.info(f"Получаем текущие данные AQI для пользователя {user_id} ({city})")
+
                     # Получаем текущие данные о качестве воздуха
                     air_data = await get_air_pollution_data(lat, lon)
                     current_aqi = air_data['list'][0]['main']['aqi']
+                    logging.info(f"Текущий AQI для {city}: {current_aqi}")
 
                     # Если AQI изменился, отправляем уведомление
                     if previous_aqi and current_aqi != previous_aqi:
@@ -99,30 +103,45 @@ async def send_notifications():
                             trend = "повышение"
                         else:
                             trend = "понижение"
+                        logging.info(f"Отправка уведомления о {trend} AQI пользователю {user_id} ({city})")
                         await bot.send_message(user_id, f"Внимание! В городе {city} наблюдается {trend} загрязнения. Текущий AQI: {current_aqi}")
 
                         # Обновляем текущий AQI в базе данных
                         crud.update_user_aqi(db, user_id, current_aqi)
 
+                    # Логируем получение прогноза загрязнения
+                    logging.info(f"Получаем прогноз AQI для пользователя {user_id} ({city})")
+
                     # Получаем прогноз загрязнения на ближайшие 6 часов
                     forecast_data = await get_air_pollution_forecast(lat, lon)
                     forecast_aqi = [f['main']['aqi'] for f in forecast_data['list'][:6]]  # Прогноз на 6 часов
+                    logging.info(f"Прогноз AQI на ближайшие 6 часов для {city}: {forecast_aqi}")
 
                     # Проверяем на значительное изменение AQI
+                    start_hour = None
+                    end_hour = None
                     for i, forecast in enumerate(forecast_aqi):
-                        if abs(forecast - current_aqi) >= 2:  # Изменение на 2 или более пунктов
-                            if forecast > current_aqi:
-                                trend = "ухудшение"
-                            else:
-                                trend = "улучшение"
-                            hours = (i + 1) * 1  # Час прогноза (от 1 до 6)
-                            await bot.send_message(user_id, f"Внимание! Через {hours} часов ожидается {trend} качества воздуха в городе {city}. Прогнозируемый AQI: {forecast}")
-                            break
+                        logging.info(f"Анализируем прогноз на {i + 1} час: текущий AQI = {current_aqi}, прогноз AQI = {forecast}")
                         
+                        # Если AQI изменяется на 2 или больше пунктов
+                        if abs(forecast - current_aqi) >= 2:
+                            if start_hour is None:
+                                start_hour = i + 1  # Начало изменения (через сколько часов)
+                            end_hour = i + 1  # Конец изменения (последний час)
+
+                    # Если нашли изменения AQI в прогнозе
+                    if start_hour is not None and end_hour is not None:
+                        if forecast_aqi[end_hour - 1] > current_aqi:
+                            trend = "ухудшение"
+                        else:
+                            trend = "улучшение"
+                        logging.info(f"Отправка уведомления о {trend} качества воздуха через {start_hour} часов до {end_hour} часа(ов) пользователю {user_id} ({city})")
+                        await bot.send_message(user_id, f"Внимание! В городе {city} ожидается {trend} качества воздуха через {start_hour} час(ов) и оно продлится до {end_hour} часа(ов). Прогнозируемый AQI: {forecast_aqi[end_hour-1]}")
+
         except Exception as e:
             logging.error(f"Ошибка в функции отправки уведомлений: {e}")
-        await asyncio.sleep(3)  # Ожидаем 30 минут перед следующей проверкой
-
+        
+        await asyncio.sleep(30 * 60)  # Ожидаем 30 минут перед следующей проверкой
 
 # Хэндлер команды /stop
 @dp.message(Command("stop"))
