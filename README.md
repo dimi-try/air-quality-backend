@@ -37,6 +37,17 @@ weather-app-backend/
 ```
 python -r requirements txt
 ```
+В директории репозитория создаете файл .env, в нем необходимо будет прописать следующие параметры
+```
+OPENWEATHER_API_KEY=<ключ open weather>
+TELEGRAM_BOT_TOKEN=<токен телеграм-бота>
+GEOCODING_API_KEY=<ключ для работы геокодинга>
+DATABASE_USERNAME=<username базы данных Postgres>
+DATABASE_PASSWORD=<пароль базы данных Postgres>
+DATABASE_HOST=<хост базы данных>
+DATABASE_PORT=<порт базы данных>
+DATABASE_NAME=<название таблицы>
+```
 и запустите проект.
 ```
 uvicorn main:app --reload
