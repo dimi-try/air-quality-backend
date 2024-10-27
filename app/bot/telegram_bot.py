@@ -1,22 +1,16 @@
+import asyncio
+import logging
 from aiogram import Bot, Dispatcher
 from aiogram.fsm.storage.memory import MemoryStorage
 from aiogram.filters import Command
 from aiogram.types import Message
-import asyncio
-import logging
-from dotenv import load_dotenv
-import os
 from app.db.database import get_db
 import app.db.crud as crud
-from air_quality import get_city_by_coords, get_air_pollution_data, get_air_pollution_forecast
 import app.bot.messages as messages
-
-load_dotenv()
-
-TELEGRAM_BOT_TOKEN = os.getenv('TELEGRAM_BOT_TOKEN')
+from air_quality import get_city_by_coords, get_air_pollution_data, get_air_pollution_forecast
+from config import TELEGRAM_BOT_TOKEN
 
 # Логирование
-# logging.basicConfig(level=logging.INFO)
 
 # Создание экземпляра бота
 bot = Bot(token=TELEGRAM_BOT_TOKEN)
