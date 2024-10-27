@@ -8,7 +8,6 @@ from app.db.database import get_db
 import app.db.crud as crud
 import app.bot.messages as messages
 from app.bot.utils import get_coordinates
-from app.bot.db_interface import create_or_update_subscription
 from air_quality import get_city_by_coords, get_air_pollution_data, get_air_pollution_forecast
 from config import TELEGRAM_BOT_TOKEN, AIR_QUALITY_CHECK_INTERVAL
 
@@ -35,7 +34,17 @@ async def start(message: Message):
       air_data = await get_air_pollution_data(coordinates["lat"], coordinates["lon"])
       current_aqi = air_data['list'][0]['main']['aqi']
       
-      create_or_update_subscription(message, city, coordinates, current_aqi)
+      with get_db() as db:
+        telegram_id = message.from_user.id
+        # Используем функцию create_or_update_subscription
+        crud.create_or_update_subscription(
+          db,
+          telegram_id=telegram_id,
+          city=city,
+          lon=coordinates['lon'],
+          lat=coordinates['lat'],
+          current_aqi=current_aqi
+        )
 
       await message.answer(messages.MESSAGE_SAVE_SUBSCRIPTION + f"{city}")
 
@@ -53,7 +62,6 @@ async def send_notifications():
     try:
       with get_db() as db:
         users = crud.get_all_subscriptions(db)
-        # logging.info(f"Получено {len(users)} подписчиков")
         for user in users:
           previous_aqi = user.current_aqi  # Получаем предыдущий AQI
 
