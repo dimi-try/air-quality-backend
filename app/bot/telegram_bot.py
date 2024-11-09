@@ -3,7 +3,7 @@ import logging
 from aiogram import Bot, Dispatcher
 from aiogram.fsm.storage.memory import MemoryStorage
 from aiogram.filters import Command
-from aiogram.types import Message
+from aiogram.types import Message, ReplyKeyboardMarkup, KeyboardButton
 from app.db.database import get_db
 import app.db.crud as crud
 import app.bot.messages as messages
@@ -16,11 +16,20 @@ bot = Bot(token=TELEGRAM_BOT_TOKEN)
 storage = MemoryStorage()
 dp = Dispatcher(storage=storage)
 
-# Хэндлер команды /start с параметрами
+# Хэндлер команды /start с кнопками
 @dp.message(Command("start"))
 async def start(message: Message):
     logging.info(f"[TELEGRAM BOT] /start от {message.from_user.id} message: {message.text}")
     coordinates = get_coordinates(message)
+
+    # Создаем кнопки для клавиатуры
+    keyboard = ReplyKeyboardMarkup(
+        keyboard=[
+            [KeyboardButton(text="Проверить качество воздуха")],
+            [KeyboardButton(text="Отписаться от уведомлений")]
+        ],
+        resize_keyboard=True
+    )
 
     if coordinates:
         try:            
@@ -39,14 +48,43 @@ async def start(message: Message):
                     current_aqi=current_aqi
                 )
 
-            await message.answer(messages.MESSAGE_SAVE_SUBSCRIPTION + f"{city}")
+            await message.answer(
+                messages.MESSAGE_SAVE_SUBSCRIPTION + f"{city}",
+                reply_markup=keyboard  # Отправляем сообщение с клавиатурой
+            )
 
         except Exception as e:
             logging.error(f"Произошла ошибка: {e}")
             await message.answer(messages.MESSAGE_START_ERROR)
 
     else:
-        await message.answer(messages.MESSAGE_COORDINATES_NOT_PROVIDED)
+        await message.answer(messages.MESSAGE_COORDINATES_NOT_PROVIDED, reply_markup=keyboard)
+
+# Хэндлер для обработки текстовых сообщений с кнопок
+@dp.message(lambda message: message.text == "Проверить качество воздуха")
+async def check_air_quality(message: Message):
+    # Реализация проверки качества воздуха
+    try:
+        coordinates = get_coordinates(message)
+        if coordinates:
+            air_data = await get_air_pollution_data(coordinates["lat"], coordinates["lon"])
+            current_aqi = air_data['list'][0]['main']['aqi']
+            await message.answer(f"Текущий AQI: {current_aqi}")
+        else:
+            await message.answer(messages.MESSAGE_COORDINATES_NOT_PROVIDED)
+    except Exception as e:
+        logging.error(f"Ошибка при проверке качества воздуха: {e}")
+        await message.answer("Произошла ошибка при проверке качества воздуха.")
+
+@dp.message(lambda message: message.text == "Отписаться от уведомлений")
+async def unsubscribe(message: Message):
+    # Обработка отписки
+    with get_db() as db:
+        success = crud.delete_subscription(db, telegram_id=message.from_user.id)
+        if success:
+            await message.answer(messages.USER_UNSUBSCRIBED)
+        else:
+            await message.answer(messages.USER_UNSUBSCRIBED_ERROR)
 
 # Функция отправки уведомлений
 async def send_notifications():
@@ -92,18 +130,9 @@ async def send_notifications():
         
         await asyncio.sleep(AIR_QUALITY_CHECK_INTERVAL)
 
-# Хэндлер команды /stop
-@dp.message(Command("stop"))
-async def stop(message: Message):
-    with get_db() as db:
-        success = crud.delete_subscription(db, telegram_id=message.from_user.id)
-        if success:
-            await message.answer(messages.USER_UNSUBSCRIBED)
-        else:
-            await message.answer(messages.USER_UNSUBSCRIBED_ERROR)
-
 # Запуск бота
 async def start_bot():
     logging.info("Запуск бота...")
     await bot.delete_webhook(drop_pending_updates=True)
     await dp.start_polling(bot)  # Передаем bot в start_polling
+

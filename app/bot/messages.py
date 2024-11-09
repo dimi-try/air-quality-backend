@@ -3,7 +3,7 @@
 
 MESSAGE_COORDINATES_NOT_PROVIDED = """
 Подписку на уведомления можно оформить на нашем сайте.\n
-Сайт - https://stylua.netlify.app/\n
+Сайт - http://air.stylua.ru/\n
 Или можете отправить нам свою геопозицию.
 """
 

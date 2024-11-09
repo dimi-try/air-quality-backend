@@ -20,6 +20,7 @@ OPENWEATHER_GEOCODING_URL =       OPENWEATHER_URL + "/geo/1.0/reverse?lat={lat}&
 OPENWEATHER_CURRENT_STATUS_URL =  OPENWEATHER_URL + "/data/2.5/air_pollution?lat={lat}&lon={lon}"           + f"&appid={OPENWEATHER_API_KEY}"
 OPENWEATHER_FORECAST_URL =        OPENWEATHER_URL + "/data/2.5/air_pollution/forecast?lat={lat}&lon={lon}"  + f"&appid={OPENWEATHER_API_KEY}"
 
+# тестируем текущее состояние воздуха с помощью тестовых данных
 # OPENWEATHER_CURRENT_STATUS_URL = "http://localhost:80/api/air"
 
 # =============== DATABASE ===============
