@@ -65,13 +65,18 @@ async def start(message: Message):
 async def check_air_quality(message: Message):
     # Реализация проверки качества воздуха
     try:
-        coordinates = get_coordinates(message)
-        if coordinates:
-            air_data = await get_air_pollution_data(coordinates["lat"], coordinates["lon"])
-            current_aqi = air_data['list'][0]['main']['aqi']
-            await message.answer(f"Текущий AQI: {current_aqi}")
-        else:
-            await message.answer(messages.MESSAGE_COORDINATES_NOT_PROVIDED)
+        # Получаем данные пользователя из базы
+        with get_db() as db:
+            user_data = crud.get_subscription_by_telegram_id(db, telegram_id=message.from_user.id)
+            # Проверяем, удалось ли получить данные пользователя из базы
+            if user_data and user_data.lat is not None and user_data.lon is not None:
+                # Используем координаты из базы
+                air_data = await get_air_pollution_data(user_data.lat, user_data.lon)
+                current_aqi = air_data['list'][0]['main']['aqi']
+                await message.answer(f"Текущий AQI для {user_data.city}: {current_aqi}")
+            else:
+                await message.answer(messages.MESSAGE_COORDINATES_NOT_PROVIDED)
+    
     except Exception as e:
         logging.error(f"Ошибка при проверке качества воздуха: {e}")
         await message.answer("Произошла ошибка при проверке качества воздуха.")

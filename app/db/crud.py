@@ -46,3 +46,15 @@ def delete_subscription(db: Session, telegram_id: int) -> bool:
     db.delete(subscription)
     db.commit()
     return True
+
+
+# Получение подписки по telegram_id
+def get_subscription_by_telegram_id(db: Session, telegram_id: int) -> Subscription:
+    subscription = db.query(Subscription).filter(Subscription.telegram_id == telegram_id).first()    
+    if not subscription:
+        return None
+
+    # Обновляем объект, чтобы он снова был привязан к сессии
+    db.refresh(subscription)  # Это позволяет убедиться, что атрибуты объекта доступны
+
+    return subscription
