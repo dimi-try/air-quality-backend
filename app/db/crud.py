@@ -24,6 +24,11 @@ def create_or_update_subscription(
         db.commit()
         db.refresh(user)
 
+    # Удаляем существующую подписку если она имеется
+    subscription = db.query(Subscription).filter(Subscription.user_id == tg_user.id).first()
+    if subscription:
+        delete_subscription(db, tg_user.id)
+
     # Проверяем, существует ли локация с указанными данными
     location = (
         db.query(Location)

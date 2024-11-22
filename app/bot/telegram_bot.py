@@ -88,31 +88,31 @@ async def unsubscribe(message: Message):
     else:
       await message.answer(messages.USER_UNSUBSCRIBED_ERROR)
 
-# # Хэндлер для обработки геопозиций
-# @dp.message(lambda message: message.location is not None)
-# async def handle_location(message: Message):
-#     # Получаем координаты
-#     latitude = message.location.latitude
-#     longitude = message.location.longitude
-#     logging.info(f"[TELEGRAM BOT] Получена геопозиция от пользователя {message.from_user.id}: "
-#                  f"Широта: {latitude}, Долгота: {longitude}")
-    
-#     # Сохраняем данные в базе
-#     city = await get_city_by_coords(latitude, longitude)
-#     air_data = await get_air_pollution_data(latitude, longitude)
-#     current_aqi = air_data['list'][0]['main']['aqi']
-#     with get_db() as db:
-#         telegram_id = message.from_user.id
-#         crud.create_or_update_subscription(
-#             db,
-#             telegram_id=telegram_id,
-#             city=city,
-#             lon=longitude,
-#             lat=latitude,
-#             current_aqi=current_aqi
-#         )
-#     # Ответ на сообщение с геопозицией
-#     await message.answer(f"Спасибо за то что предоставили геопозицию! Ваша геопозиция: Широта {latitude}, Долгота {longitude}. Ваш город: {city}. Текущий AQI: {current_aqi}")
+# Хэндлер для обработки геопозиций
+@dp.message(lambda message: message.location is not None)
+async def handle_location(message: Message):
+  # Получаем координаты
+  latitude = message.location.latitude
+  longitude = message.location.longitude
+  logging.info(f"[TELEGRAM BOT] Получена геопозиция от пользователя {message.from_user.id}: "
+                f"Широта: {latitude}, Долгота: {longitude}")
+  
+  # Сохраняем данные в базе
+  city = await get_city_by_coords(latitude, longitude)
+  coordinates = {"lat": latitude, "lon": longitude}
+  air_data = await get_air_pollution_data(latitude, longitude)
+  current_aqi = air_data['list'][0]['main']['aqi']
+  with get_db() as db:
+    telegram_id = message.from_user.id
+    crud.create_or_update_subscription(
+      db,
+      tg_user=message.from_user,
+      coordinates=coordinates,
+      city=city,
+      current_aqi=current_aqi
+    )
+  # Ответ на сообщение с геопозицией
+  await message.answer(f"Спасибо за то что предоставили геопозицию! Ваша геопозиция: Широта {latitude}, Долгота {longitude}. Ваш город: {city}. Текущий AQI: {current_aqi}")
 
 # Функция отправки уведомлений
 async def send_notifications():
