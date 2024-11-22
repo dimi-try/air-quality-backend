@@ -71,19 +71,21 @@ def create_or_update_subscription(
     return new_subscription
 
 
-# Добавляем функцию для получения всех 
-# def get_all_subscriptions(db: Session) -> list[Subscription]:
-#     return db.query(Subscription).all()
+def get_all_users(db: Session) -> list[Subscription]:
+    return db.query(User).all()
 
-# # Update aqi
-# def update_user_aqi(db: Session, telegram_id: int, current_aqi: int) -> Subscription:
-#     subscription = db.query(Subscription).filter(Subscription.telegram_id == telegram_id).first()
-#     if not subscription:
-#         return None
-#     subscription.current_aqi = current_aqi
-#     db.commit()
-#     db.refresh(subscription)
-#     return subscription
+def update_location_aqi(db: Session, coordinates: dict, current_aqi: int) -> Subscription:
+    location = (
+        db.query(Location)
+        .filter(
+            Location.longitude == coordinates['lon'], 
+            Location.latitude == coordinates['lat'])
+        .first()
+    )
+    location.aqi = current_aqi
+    db.commit()
+    db.refresh(location)
+    return location
 
 # # Delete
 # def delete_subscription(db: Session, telegram_id: int) -> bool:

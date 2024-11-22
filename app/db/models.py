@@ -12,17 +12,17 @@ class User(Base):
     first_name = Column(String(100), nullable=True)
     last_name = Column(String(100), nullable=True)
 
-    # Связь с подписками
-    subscriptions = relationship("Subscription", back_populates="user")
+    # Связь с подпиской (один пользователь — одна подписка)
+    subscription = relationship("Subscription", back_populates="user", uselist=False)
 
 class Subscription(Base):
     __tablename__ = "subscriptions"
     id = Column(Integer, primary_key=True)
-    user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    user_id = Column(Integer, ForeignKey("users.id"), unique=True, nullable=False)  # Unique ограничение
     location_id = Column(Integer, ForeignKey("locations.id"), nullable=False)
 
     # Связи с таблицами Users и Locations
-    user = relationship("User", back_populates="subscriptions")
+    user = relationship("User", back_populates="subscription")
     location = relationship("Location", back_populates="subscriptions")
 
 class Location(Base):
@@ -33,7 +33,7 @@ class Location(Base):
     latitude = Column(Float, nullable=False)
     aqi = Column(Integer, nullable=True)
 
-    # Связь с подписками и оповещениями
+    # Связь с подписками
     subscriptions = relationship("Subscription", back_populates="location")
     # alerts = relationship("Alert", back_populates="location")
 
