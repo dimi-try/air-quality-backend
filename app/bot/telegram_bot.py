@@ -59,35 +59,34 @@ async def start(message: Message):
     await message.answer(messages.MESSAGE_COORDINATES_NOT_PROVIDED, reply_markup=keyboard)
 
 # Хэндлер для обработки текстовых сообщений с кнопок
-# @dp.message(lambda message: message.text == "Проверить качество воздуха")
-# async def check_air_quality(message: Message):
-    # Реализация проверки качества воздуха
-    try:
-        # Получаем данные пользователя из базы
-        with get_db() as db:
-            user_data = crud.get_subscription_by_telegram_id(db, telegram_id=message.from_user.id)
-            # Проверяем, удалось ли получить данные пользователя из базы
-            if user_data and user_data.lat is not None and user_data.lon is not None:
-                # Используем координаты из базы
-                air_data = await get_air_pollution_data(user_data.lat, user_data.lon)
-                current_aqi = air_data['list'][0]['main']['aqi']
-                await message.answer(f"Текущий AQI для {user_data.city}: {current_aqi}")
-            else:
-                await message.answer(messages.MESSAGE_COORDINATES_NOT_PROVIDED)
-    
-    except Exception as e:
-        logging.error(f"Ошибка при проверке качества воздуха: {e}")
-        await message.answer("Произошла ошибка при проверке качества воздуха.")
+@dp.message(lambda message: message.text == "Проверить качество воздуха")
+async def check_air_quality(message: Message):
+  try:
+    # Получаем данные пользователя из базы
+    with get_db() as db:
+      user = crud.get_subscription_by_telegram_id(db, telegram_id=message.from_user.id)
+      # Проверяем, удалось ли получить данные пользователя из базы
+      if user:
+        location = user.subscription.location
+        air_data = await get_air_pollution_data(location.latitude, location.longitude)
+        current_aqi = air_data['list'][0]['main']['aqi']
+        await message.answer(f"Текущий AQI для {location.city}: {current_aqi}")
+      else:
+        await message.answer(messages.MESSAGE_COORDINATES_NOT_PROVIDED)
+  
+  except Exception as e:
+    logging.error(f"Ошибка при проверке качества воздуха: {e}")
+    await message.answer("Произошла ошибка при проверке качества воздуха.")
 
-# @dp.message(lambda message: message.text == "Отписаться от уведомлений")
-# async def unsubscribe(message: Message):
-#     # Обработка отписки
-#     with get_db() as db:
-#         success = crud.delete_subscription(db, telegram_id=message.from_user.id)
-#         if success:
-#             await message.answer(messages.USER_UNSUBSCRIBED)
-#         else:
-#             await message.answer(messages.USER_UNSUBSCRIBED_ERROR)
+@dp.message(lambda message: message.text == "Отписаться от уведомлений")
+async def unsubscribe(message: Message):
+  # Обработка отписки
+  with get_db() as db:
+    success = crud.delete_subscription(db, telegram_id=message.from_user.id)
+    if success:
+      await message.answer(messages.USER_UNSUBSCRIBED)
+    else:
+      await message.answer(messages.USER_UNSUBSCRIBED_ERROR)
 
 # # Хэндлер для обработки геопозиций
 # @dp.message(lambda message: message.location is not None)
@@ -143,22 +142,22 @@ async def send_notifications():
               f"Внимание! В городе {user_city} наблюдается {trend} загрязнения. Текущий AQI: {current_aqi}"
               )
 
-            # Прогноз на ближайшие 6 часов для экстренных уведомлений
-            forecast_data = await get_air_pollution_forecast(coordinates['lat'], coordinates['lon'])
-            forecast_aqi = [f['main']['aqi'] for f in forecast_data['list'][:6]]
-            for i, forecast in enumerate(forecast_aqi):
-              if abs(forecast - current_aqi) >= 2:
-                trend = "ухудшение" if forecast > current_aqi else "улучшение"
-                hours = (i + 1) * 1
-                await bot.send_message(user.id, 
-                f"Внимание! Через {hours} часов ожидается {trend} качества воздуха в городе {user_city}. Прогнозируемый AQI: {forecast}")
-                break
+          # Прогноз на ближайшие 6 часов для экстренных уведомлений
+          forecast_data = await get_air_pollution_forecast(coordinates['lat'], coordinates['lon'])
+          forecast_aqi = [f['main']['aqi'] for f in forecast_data['list'][:6]]
+          for i, forecast in enumerate(forecast_aqi):
+            if abs(forecast - current_aqi) >= 2:
+              trend = "ухудшение" if forecast > current_aqi else "улучшение"
+              hours = (i + 1) * 1
+              await bot.send_message(user.id, 
+              f"Внимание! Через {hours} часов ожидается {trend} качества воздуха в городе {user_city}. Прогнозируемый AQI: {forecast}")
+              break
 
-            # Регулярное уведомление (в 8:00 и 20:00)
-            if now >= next_regular_notification_time:
-                trend = "ухудшение" if current_aqi >= 3 else "нормальный уровень"
-                await bot.send_message(user.id, f"Ежедневный отчет: качество воздуха в {user_city} {trend}. Текущий AQI: {current_aqi}")
-                next_regular_notification_time += timedelta(hours=12)  # Следующее уведомление через 12 часов
+          # Регулярное уведомление (в 8:00 и 20:00)
+          if now >= next_regular_notification_time:
+            trend = "ухудшение" if current_aqi >= 3 else "нормальный уровень"
+            await bot.send_message(user.id, f"Ежедневный отчет: качество воздуха в {user_city} {trend}. Текущий AQI: {current_aqi}")
+            next_regular_notification_time += timedelta(hours=12)  # Следующее уведомление через 12 часов
 
     except Exception as e:
       logging.error(f"Ошибка в функции отправки уведомлений: {e}")

@@ -1,8 +1,7 @@
-from sqlalchemy import Column, Integer, String, Float, ForeignKey, DateTime, UniqueConstraint, Text
+from sqlalchemy import Column, Integer, String, Float, ForeignKey, DateTime, UniqueConstraint, Text, CheckConstraint
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import relationship
 from datetime import datetime
-
 Base = declarative_base()
 
 class User(Base):
@@ -32,9 +31,22 @@ class Location(Base):
     longitude = Column(Float, nullable=False)
     latitude = Column(Float, nullable=False)
     aqi = Column(Integer, nullable=True)
+    created_by = Column(
+        String(20), 
+        nullable=False, 
+        default="default"
+    )
 
     # Связь с подписками
     subscriptions = relationship("Subscription", back_populates="location")
+
+    # Поле, в которое можно записать от кого была создана запись.
+    # Если default - значение не удаляется при удалении подписки пользователя из бд
+    # Если telegram_user - значение удаляется при удалении подписки
+    # Возможные значения: "telegram_user", "default", другого пока не придумал
+    __table_args__ = (
+        CheckConstraint("created_by IN ('telegram_user', 'default')", name="check_created_by"),
+    )
     # alerts = relationship("Alert", back_populates="location")
 
 # class MapCache(Base):

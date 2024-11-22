@@ -38,7 +38,9 @@ def create_or_update_subscription(
             city=city, 
             longitude=coordinates['lon'], 
             latitude=coordinates['lat'], 
-            aqi=current_aqi)
+            aqi=current_aqi,
+            created_by="telegram_user"
+        )
         db.add(location)
         db.commit()
         db.refresh(location)
@@ -87,23 +89,29 @@ def update_location_aqi(db: Session, coordinates: dict, current_aqi: int) -> Sub
     db.refresh(location)
     return location
 
-# # Delete
-# def delete_subscription(db: Session, telegram_id: int) -> bool:
-#     subscription = db.query(Subscription).filter(Subscription.telegram_id == telegram_id).first()
-#     if not subscription:
-#         return False
-#     db.delete(subscription)
-#     db.commit()
-#     return True
+# Delete
+def delete_subscription(db: Session, telegram_id: int) -> bool:
+    subscription = db.query(Subscription).filter(Subscription.user_id == telegram_id).first()
+    if not Subscription:
+        return False
+
+    location = db.query(Location).filter(Location.id == subscription.location_id).first()
+
+    if location.created_by == "telegram_user":
+        db.delete(location)
+    db.delete(subscription)
+    db.commit()
+    return True
 
 
-# # Получение подписки по telegram_id
-# def get_subscription_by_telegram_id(db: Session, telegram_id: int) -> Subscription:
-#     subscription = db.query(Subscription).filter(Subscription.telegram_id == telegram_id).first()    
-#     if not subscription:
-#         return None
 
-#     # Обновляем объект, чтобы он снова был привязан к сессии
-#     db.refresh(subscription)  # Это позволяет убедиться, что атрибуты объекта доступны
+# Получение подписки по telegram_id
+def get_subscription_by_telegram_id(db: Session, telegram_id: int) -> User:
+    user = db.query(User).filter(User.id == telegram_id).first()    
+    if not user:
+        return None
 
-#     return subscription
+    # Обновляем объект, чтобы он снова был привязан к сессии
+    db.refresh(user)  # Это позволяет убедиться, что атрибуты объекта доступны
+
+    return user
