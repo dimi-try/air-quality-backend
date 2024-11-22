@@ -1,5 +1,6 @@
 from fastapi import FastAPI
 from app.bot.telegram_bot import start_bot, send_notifications
+from worker import update_database
 from aiocache import cached
 from fastapi.middleware.cors import CORSMiddleware
 import asyncio
@@ -23,6 +24,8 @@ app.include_router(router)
 async def startup_event():
     asyncio.create_task(start_bot())
     asyncio.create_task(send_notifications())
+    asyncio.create_task(update_database())
 
 if __name__ == '__main__':
     uvicorn.run(app, host='0.0.0.0', port=8000)
+

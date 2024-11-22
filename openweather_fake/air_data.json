@@ -2,7 +2,7 @@
   "coord": {"lon": 54.321, "lat": 54.321},
   "list": [
     {
-      "main": {"aqi": 6},
+      "main": {"aqi": 4},
       "components": {
         "co": 223.64,
         "no": 0,

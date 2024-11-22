@@ -31,6 +31,7 @@ class Location(Base):
     longitude = Column(Float, nullable=False)
     latitude = Column(Float, nullable=False)
     aqi = Column(Integer, nullable=True)
+    radius = Column(Integer, nullable=True)
     created_by = Column(
         String(20), 
         nullable=False, 
@@ -39,6 +40,7 @@ class Location(Base):
 
     # Связь с подписками
     subscriptions = relationship("Subscription", back_populates="location")
+    map_cache = relationship("MapCache", back_populates="location", uselist=False)
 
     # Поле, в которое можно записать от кого была создана запись.
     # Если default - значение не удаляется при удалении подписки пользователя из бд
@@ -47,18 +49,25 @@ class Location(Base):
     __table_args__ = (
         CheckConstraint("created_by IN ('telegram_user', 'default')", name="check_created_by"),
     )
-    # alerts = relationship("Alert", back_populates="location")
 
-# class MapCache(Base):
-#     __tablename__ = "map_cache"
-#     id = Column(Integer, primary_key=True)
-#     location_id = Column(Integer, ForeignKey("locations.id"), nullable=False)  # Внешний ключ на локации
-#     created_at = Column(DateTime, default=datetime.utcnow)                      # Дата создания записи
-#     expiration_date = Column(DateTime, nullable=False)                          # Дата истечения срока
+class MapCache(Base):
+    __tablename__ = "map"
+    id = Column(Integer, primary_key=True)
+    location_id = Column(Integer, ForeignKey("locations.id"), nullable=False)
+    expiration_date = Column(DateTime, nullable=False)
+    co = Column(Float, nullable=False)
+    no = Column(Float, nullable=False)
+    no2 = Column(Float, nullable=False)
+    o3 = Column(Float, nullable=False)
+    so2 = Column(Float, nullable=False)
+    pm2_5 = Column(Float, nullable=False)
+    pm10 = Column(Float, nullable=False)
+    nh3 = Column(Float, nullable=False)
 
-#     # Связь с локацией
-#     location = relationship("Location")
+    # Связь с локацией
+    location = relationship("Location", back_populates="map_cache", uselist=False)
 
+# Я не уверен что эта таблица нужна...
 # class Alert(Base):
 #     __tablename__ = "alerts"
 #     id = Column(Integer, primary_key=True)

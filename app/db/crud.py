@@ -1,7 +1,9 @@
 # crud.py
 from sqlalchemy.orm import Session
-from app.db.models import User, Subscription, Location
+from app.db.models import User, Subscription, Location, MapCache
 from sqlalchemy.exc import NoResultFound
+from config import MAP_DATA_TTL
+import datetime
 
 
 def create_or_update_subscription(
@@ -115,3 +117,44 @@ def get_subscription_by_telegram_id(db: Session, telegram_id: int) -> User:
     db.refresh(user)  # Это позволяет убедиться, что атрибуты объекта доступны
 
     return user
+
+def get_all_locations(db: Session) -> list[Location]:
+    return db.query(Location).all()
+
+def update_map_cache(db: Session, location_info: dict, location: Location) -> Location:
+    map_cache = db.query(MapCache).filter(MapCache.location_id == location.id).first()
+
+    if not map_cache:
+        map_cache = MapCache(
+            location_id=location.id,
+            expiration_date=datetime.datetime.utcfromtimestamp(location_info['list'][0]['dt'] + MAP_DATA_TTL),
+            co=location_info['list'][0]['components']['co'],
+            no=location_info['list'][0]['components']['no'],
+            no2=location_info['list'][0]['components']['no2'],
+            o3=location_info['list'][0]['components']['o3'],
+            so2=location_info['list'][0]['components']['so2'],
+            pm2_5=location_info['list'][0]['components']['pm2_5'],
+            pm10=location_info['list'][0]['components']['pm10'],
+            nh3=location_info['list'][0]['components']['nh3']
+        )
+        db.add(map_cache)
+        db.commit()
+        db.refresh(map_cache)
+        return location
+
+    map_cache.expiration_date = datetime.datetime.utcfromtimestamp(location_info['list'][0]['dt'] + MAP_DATA_TTL)
+    map_cache.co =              location_info['list'][0]['components']['co']
+    map_cache.no =              location_info['list'][0]['components']['no']
+    map_cache.no2 =             location_info['list'][0]['components']['no2']
+    map_cache.o3 =              location_info['list'][0]['components']['o3']
+    map_cache.so2 =             location_info['list'][0]['components']['so2']
+    map_cache.pm2_5 =           location_info['list'][0]['components']['pm2_5']
+    map_cache.pm10 =            location_info['list'][0]['components']['pm10']
+    map_cache.nh3 =             location_info['list'][0]['components']['nh3']
+
+    db.commit()
+    db.refresh(location)
+    return location
+
+def get_map_cache(db: Session) -> list[Location]:
+    return db.query(MapCache).all()
