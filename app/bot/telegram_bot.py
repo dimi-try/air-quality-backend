@@ -1,102 +1,173 @@
+import asyncio
+import logging
 from aiogram import Bot, Dispatcher
 from aiogram.fsm.storage.memory import MemoryStorage
 from aiogram.filters import Command
-from aiogram.types import Message
-import asyncio
-import logging
-from dotenv import load_dotenv
-import os
-from opencage.geocoder import OpenCageGeocode
+from aiogram.types import Message, ReplyKeyboardMarkup, KeyboardButton
+from app.db.database import get_db
+import app.db.crud as crud
+import app.bot.messages as messages
+from app.bot.utils import get_coordinates
+from air_quality import get_city_by_coords, get_air_pollution_data, get_air_pollution_forecast
+from config import TELEGRAM_BOT_TOKEN, AIR_QUALITY_CHECK_INTERVAL
+from datetime import datetime, time, timedelta
 
-
-load_dotenv()
-
-TELEGRAM_BOT_TOKEN = os.getenv('TELEGRAM_BOT_TOKEN')
-
-# Задаем API ключ для OpenCage
-GEOCODING_API_KEY = os.getenv('GEOCODING_API_KEY')
-geocoder = OpenCageGeocode(GEOCODING_API_KEY)
-
-# Логирование
-logging.basicConfig(level=logging.INFO)
-
-# Создание экземпляра бота
 bot = Bot(token=TELEGRAM_BOT_TOKEN)
 storage = MemoryStorage()
+dp = Dispatcher(storage=storage)
 
-# Создание диспетчера
-dp = Dispatcher(storage=storage)  # Передаем storage в диспетчер
-
-# Хэндлер команды /start с параметрами
+# Хэндлер команды /start с кнопками
 @dp.message(Command("start"))
 async def start(message: Message):
-    logging.info(f"Получена команда /start от {message.from_user.id}")
-    logging.info(f"А что именно передалось {message.text}")
-    
-    # Проверяем, что текст команды содержит необходимые параметры
-    if message.text and "lon" in message.text and "lat" in message.text:
-        try:
-            # Извлекаем координаты с помощью регулярных выражений или разбиения строки
-            lon = message.text.split("lon")[1].split("lat")[0].strip()
-            lat = message.text.split("lat")[1].strip()
+  logging.info(f"[TELEGRAM BOT] /start от {message.from_user.id} message: {message.text}")
+  coordinates = get_coordinates(message)
 
-            # Удаляем возможные лишние символы, такие как "-" перед значением
-            lon = lon.replace("-", ".")  # Заменяем "-" на "." для долготы
-            lat = lat.replace("-", ".")  # Заменяем "-" на "." для широты
-            
-            # Используем OpenCage Data для обратного геокодирования
-            result = geocoder.reverse_geocode(float(lat), float(lon))
-            
-            if result and len(result):
-                # Получаем название города из результата
-                city = result[0]['components'].get('city', 'Неизвестно')
+  # Создаем кнопки для клавиатуры
+  keyboard = ReplyKeyboardMarkup(
+    keyboard=[
+      [KeyboardButton(text="Проверить качество воздуха")],
+      [KeyboardButton(text="Отписаться от уведомлений")]
+    ],
+    resize_keyboard=True
+  )
 
-                # Здесь можно добавить код для сохранения в БД, если необходимо
-                await message.answer(f"Спасибо за подписку на рассылку!\nГород: {city}\nКоординаты: {lon}, {lat}")
-            else:
-                await message.answer("Не удалось определить местоположение, попробуйте снова.")
-        
-        except Exception as e:
-            logging.error(f"Произошла ошибка: {e}")
-            await message.answer("Произошла ошибка при обработке координат. Пожалуйста, проверьте формат и попробуйте снова.")
-    
+  if coordinates:
+    try:            
+      city = await get_city_by_coords(coordinates["lat"], coordinates["lon"])
+      air_data = await get_air_pollution_data(coordinates["lat"], coordinates["lon"])
+      current_aqi = air_data['list'][0]['main']['aqi']
+
+      with get_db() as db:
+        crud.create_or_update_subscription(
+          db,
+          tg_user=message.from_user,
+          coordinates=coordinates,
+          city=city,
+          current_aqi=current_aqi
+        )
+
+        await message.answer(
+          messages.MESSAGE_SAVE_SUBSCRIPTION + f"{city}",
+          reply_markup=keyboard
+        )
+
+    except Exception as e:
+      logging.error(f"Произошла ошибка: {e}")
+      await message.answer(messages.MESSAGE_START_ERROR)
+
+  else:
+    await message.answer(messages.MESSAGE_COORDINATES_NOT_PROVIDED, reply_markup=keyboard)
+
+# Хэндлер для обработки текстовых сообщений с кнопок
+@dp.message(lambda message: message.text == "Проверить качество воздуха")
+async def check_air_quality(message: Message):
+  try:
+    # Получаем данные пользователя из базы
+    with get_db() as db:
+      user = crud.get_subscription_by_telegram_id(db, telegram_id=message.from_user.id)
+      # Проверяем, удалось ли получить данные пользователя из базы
+      if user:
+        location = user.subscription.location
+        air_data = await get_air_pollution_data(location.latitude, location.longitude)
+        current_aqi = air_data['list'][0]['main']['aqi']
+        await message.answer(f"Текущий AQI для {location.city}: {current_aqi}")
+      else:
+        await message.answer(messages.MESSAGE_COORDINATES_NOT_PROVIDED)
+  
+  except Exception as e:
+    logging.error(f"Ошибка при проверке качества воздуха: {e}")
+    await message.answer("Произошла ошибка при проверке качества воздуха.")
+
+@dp.message(lambda message: message.text == "Отписаться от уведомлений")
+async def unsubscribe(message: Message):
+  # Обработка отписки
+  with get_db() as db:
+    success = crud.delete_subscription(db, telegram_id=message.from_user.id)
+    if success:
+      await message.answer(messages.USER_UNSUBSCRIBED)
     else:
-        await message.answer("Пожалуйста, укажите координаты в формате: /start lon36.19lat51.73")
+      await message.answer(messages.USER_UNSUBSCRIBED_ERROR)
+
+# Хэндлер для обработки геопозиций
+@dp.message(lambda message: message.location is not None)
+async def handle_location(message: Message):
+  # Получаем координаты
+  latitude = message.location.latitude
+  longitude = message.location.longitude
+  logging.info(f"[TELEGRAM BOT] Получена геопозиция от пользователя {message.from_user.id}: "
+                f"Широта: {latitude}, Долгота: {longitude}")
+  
+  # Сохраняем данные в базе
+  city = await get_city_by_coords(latitude, longitude)
+  coordinates = {"lat": latitude, "lon": longitude}
+  air_data = await get_air_pollution_data(latitude, longitude)
+  current_aqi = air_data['list'][0]['main']['aqi']
+  with get_db() as db:
+    telegram_id = message.from_user.id
+    crud.create_or_update_subscription(
+      db,
+      tg_user=message.from_user,
+      coordinates=coordinates,
+      city=city,
+      current_aqi=current_aqi
+    )
+  # Ответ на сообщение с геопозицией
+  await message.answer(f"Спасибо за то что предоставили геопозицию! Ваша геопозиция: Широта {latitude}, Долгота {longitude}. Ваш город: {city}. Текущий AQI: {current_aqi}")
 
 # Функция отправки уведомлений
-async def send_notification():
-    # Логика пробежки по базе данных и проверки условий загрязнения
-    # Например, каждый полчаса отправляем уведомления
-    while True:
-        # Здесь должна быть выборка пользователей из БД
-        users = []  # Пример пустого списка, замените на вашу выборку
-        
+async def send_notifications():
+  while True:
+    now = datetime.now()
+    next_8am = datetime.combine(now.date(), time(8)) + timedelta(days=(now.hour >= 8))
+    next_8pm = datetime.combine(now.date(), time(20)) + timedelta(days=(now.hour >= 20))
+    next_regular_notification_time = min(next_8am, next_8pm)
+
+    try:
+      with get_db() as db:
+        users = crud.get_all_users(db)
         for user in users:
-            user_id = user["user_id"]
-            city = user["city"]
-            # Пример проверки качества воздуха
-            await bot.send_message(user_id, f"Внимание! В городе {city} превышен уровень загрязнений!")
-        
-        await asyncio.sleep(1800)  # Ожидаем 30 минут перед следующей проверкой
+          previous_aqi = user.subscription.location.aqi
+          user_city = user.subscription.location.city
+          coordinates = {'lon': user.subscription.location.longitude, 'lat': user.subscription.location.latitude}
 
-# Хэндлер для остановки уведомлений
-@dp.message(Command("stop"))
-async def stop_notification(message: Message):
-    user_id = message.from_user.id
-    # Логика удаления записи пользователя из базы
-    await message.answer("Вы отписались от рассылки уведомлений.")
+          air_data = await get_air_pollution_data(coordinates['lat'], coordinates['lon'])
+          current_aqi = air_data['list'][0]['main']['aqi']
+                    
+          # Экстренное уведомление при значительном изменении AQI
+          if previous_aqi and current_aqi != previous_aqi:
+            trend = "повышение" if current_aqi > previous_aqi else "понижение"
+            crud.update_location_aqi(db, coordinates, current_aqi)
+            await bot.send_message(
+              user.id, 
+              f"Внимание! В городе {user_city} наблюдается {trend} загрязнения. Текущий AQI: {current_aqi}"
+              )
 
-# Функция отправки уведомлений
-async def send_telegram_notification(telegram_id: str, city: str, coordinates: str):
-    await bot.send_message(telegram_id, f"Вы подписались на уведомления о загрязнении воздуха в городе {city}.\nКоординаты: {coordinates}")
+          # Прогноз на ближайшие 6 часов для экстренных уведомлений
+          forecast_data = await get_air_pollution_forecast(coordinates['lat'], coordinates['lon'])
+          forecast_aqi = [f['main']['aqi'] for f in forecast_data['list'][:6]]
+          for i, forecast in enumerate(forecast_aqi):
+            if abs(forecast - current_aqi) >= 2:
+              trend = "ухудшение" if forecast > current_aqi else "улучшение"
+              hours = (i + 1) * 1
+              await bot.send_message(user.id, 
+              f"Внимание! Через {hours} часов ожидается {trend} качества воздуха в городе {user_city}. Прогнозируемый AQI: {forecast}")
+              break
+
+          # Регулярное уведомление (в 8:00 и 20:00)
+          if now >= next_regular_notification_time:
+            trend = "ухудшение" if current_aqi >= 3 else "нормальный уровень"
+            await bot.send_message(user.id, f"Ежедневный отчет: качество воздуха в {user_city} {trend}. Текущий AQI: {current_aqi}")
+            next_regular_notification_time += timedelta(hours=12)  # Следующее уведомление через 12 часов
+
+    except Exception as e:
+      logging.error(f"Ошибка в функции отправки уведомлений: {e}")
+    
+    await asyncio.sleep(AIR_QUALITY_CHECK_INTERVAL)
 
 # Запуск бота
 async def start_bot():
-    logging.info("Запуск бота...")
-    await bot.delete_webhook(drop_pending_updates=True)
-    await dp.start_polling(bot)  # Передаем bot в start_polling
+  logging.info("Запуск бота...")
+  await bot.delete_webhook(drop_pending_updates=True)
+  await dp.start_polling(bot)
 
-# Функция on_startup для импорта в main.py
-async def on_startup():
-    logging.info("Бот запущен и готов к работе!")
-    asyncio.create_task(send_notification())  # Запускаем функцию отправки уведомлений
+
