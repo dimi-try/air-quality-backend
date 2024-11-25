@@ -6,8 +6,8 @@ def get_coordinates(message):
       lon = message.text.split("lon")[1].split("lat")[0].strip()
       lat = message.text.split("lat")[1].strip()
 
-      lon = float(lon.replace("-", "."))
-      lat = float(lat.replace("-", "."))
+      lon = float(lon.replace("d", "."))
+      lat = float(lat.replace("d", "."))
 
       # Проверка, являются ли координаты широтой и долготой
       if -90 <= lat <= 90 and -180 <= lon <= 180:

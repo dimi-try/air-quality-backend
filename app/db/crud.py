@@ -99,12 +99,13 @@ def update_location_aqi(db: Session, coordinates: dict, current_aqi: int) -> Sub
 # Delete
 def delete_subscription(db: Session, telegram_id: int) -> bool:
     subscription = db.query(Subscription).filter(Subscription.user_id == telegram_id).first()
-    if not Subscription:
+    if not subscription:
         return False
 
     location = db.query(Location).filter(Location.id == subscription.location_id).first()
 
     if location.created_by == "telegram_user":
+        db.query(MapCache).filter(MapCache.location_id == location.id).delete()
         db.delete(location)
     db.delete(subscription)
     db.commit()

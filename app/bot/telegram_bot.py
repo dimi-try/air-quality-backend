@@ -21,6 +21,7 @@ dp = Dispatcher(storage=storage)
 async def start(message: Message):
   logging.info(f"[TELEGRAM BOT] /start от {message.from_user.id} message: {message.text}")
   coordinates = get_coordinates(message)
+  print("coordinates: ", coordinates)
 
   # Создаем кнопки для клавиатуры
   keyboard = ReplyKeyboardMarkup(
