@@ -2,7 +2,6 @@ import os
 import logging
 from dotenv import load_dotenv
 
-
 load_dotenv()
 
 # ================ LOGGING ================
@@ -34,5 +33,8 @@ DATABASE_URL = f"postgresql://{DATABASE_USERNAME}:{DATABASE_PASSWORD}@{DATABASE_
 
 # =============== OTHER ================
 AIR_QUALITY_CHECK_INTERVAL = 3600 # Переменная указывающая периодичность проверки в секундах
+MAP_DATA_TTL = 3600 # Указывает время жизни данных в кэше карты в секундах
+MAP_DATA_UPDATE_INTERVAL = 3600 # Указывает периодичность обновления кеша карты в базе данных
+DEFAULT_CITY_RADIUS = 6000 # Дефолтный радиус города если он не указан в базе данных
 
 
