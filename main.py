@@ -1,17 +1,22 @@
-from fastapi import FastAPI
-from app.bot.telegram_bot import start_bot, send_notifications
-from worker import update_database
-from aiocache import cached
-from fastapi.middleware.cors import CORSMiddleware
-import asyncio
 import uvicorn
+import asyncio
 from routes import router
+from aiocache import cached
+from fastapi import FastAPI
+from worker import update_database
+from fastapi.middleware.cors import CORSMiddleware
+from app.bot.telegram_bot import start_bot, send_notifications
 
 app = FastAPI()
 
+origins = [
+    "http://localhost:3000",  # Для локальной разработки
+    "https://air.stylua.ru",  # Укажите домен фронтенда
+]
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:3000"],
+    allow_origins=origins,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
