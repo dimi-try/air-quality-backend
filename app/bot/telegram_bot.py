@@ -16,21 +16,21 @@ bot = Bot(token=TELEGRAM_BOT_TOKEN)
 storage = MemoryStorage()
 dp = Dispatcher(storage=storage)
 
+# Создаем кнопки для клавиатуры
+keyboard = ReplyKeyboardMarkup(
+  keyboard=[
+    [KeyboardButton(text="Проверить качество воздуха")],
+    [KeyboardButton(text="Отписаться от уведомлений")]
+  ],
+  resize_keyboard=True
+)
+
 # Хэндлер команды /start с кнопками
 @dp.message(Command("start"))
 async def start(message: Message):
   logging.info(f"[TELEGRAM BOT] /start от {message.from_user.id} message: {message.text}")
   coordinates = get_coordinates(message)
   print("coordinates: ", coordinates)
-
-  # Создаем кнопки для клавиатуры
-  keyboard = ReplyKeyboardMarkup(
-    keyboard=[
-      [KeyboardButton(text="Проверить качество воздуха")],
-      [KeyboardButton(text="Отписаться от уведомлений")]
-    ],
-    resize_keyboard=True
-  )
 
   if coordinates:
     try:            
@@ -71,13 +71,13 @@ async def check_air_quality(message: Message):
         location = user.subscription.location
         air_data = await get_air_pollution_data(location.latitude, location.longitude)
         current_aqi = air_data['list'][0]['main']['aqi']
-        await message.answer(f"Текущий AQI для {location.city}: {current_aqi}")
+        await message.answer(f"Текущий AQI для {location.city}: {current_aqi}", reply_markup=keyboard)
       else:
-        await message.answer(messages.MESSAGE_COORDINATES_NOT_PROVIDED)
+        await message.answer(messages.MESSAGE_COORDINATES_NOT_PROVIDED, reply_markup=keyboard)
   
   except Exception as e:
     logging.error(f"Ошибка при проверке качества воздуха: {e}")
-    await message.answer("Произошла ошибка при проверке качества воздуха.")
+    await message.answer("Произошла ошибка при проверке качества воздуха.", reply_markup=keyboard)
 
 @dp.message(lambda message: message.text == "Отписаться от уведомлений")
 async def unsubscribe(message: Message):
@@ -113,7 +113,7 @@ async def handle_location(message: Message):
       current_aqi=current_aqi
     )
   # Ответ на сообщение с геопозицией
-  await message.answer(f"Спасибо за то что предоставили геопозицию! Ваша геопозиция: Широта {latitude}, Долгота {longitude}. Ваш город: {city}. Текущий AQI: {current_aqi}")
+  await message.answer(f"♥️ Спасибо, ваша подписка сохранена!\n📍 Местоположение: {city}\n☁️ Текущий AQI: {current_aqi}", reply_markup=keyboard)
 
 # Функция отправки уведомлений
 async def send_notifications():
@@ -136,11 +136,11 @@ async def send_notifications():
                     
           # Экстренное уведомление при значительном изменении AQI
           if previous_aqi and current_aqi != previous_aqi:
-            trend = "повышение" if current_aqi > previous_aqi else "понижение"
+            trend = "улучшение" if current_aqi > previous_aqi else "ухудшение"
             crud.update_location_aqi(db, coordinates, current_aqi)
             await bot.send_message(
               user.id, 
-              f"Внимание! В городе {user_city} наблюдается {trend} загрязнения. Текущий AQI: {current_aqi}"
+              f"🌆 В вашем городе {trend} качества воздуха.\n☁️ Текущий AQI: {current_aqi}"
               )
 
           # Прогноз на ближайшие 6 часов для экстренных уведомлений
@@ -148,10 +148,10 @@ async def send_notifications():
           forecast_aqi = [f['main']['aqi'] for f in forecast_data['list'][:6]]
           for i, forecast in enumerate(forecast_aqi):
             if abs(forecast - current_aqi) >= 2:
-              trend = "ухудшение" if forecast > current_aqi else "улучшение"
+              trend = "улучшение" if forecast > current_aqi else "ухудшение"
               hours = (i + 1) * 1
               await bot.send_message(user.id, 
-              f"Внимание! Через {hours} часов ожидается {trend} качества воздуха в городе {user_city}. Прогнозируемый AQI: {forecast}")
+              f"🌆 В вашем городе {trend} качества воздуха.\n☁️ Текущий AQI: {current_aqi}")
               break
 
           # Регулярное уведомление (в 8:00 и 20:00)
