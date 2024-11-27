@@ -1,5 +1,7 @@
 import asyncio
 import logging
+import aiohttp
+from worker import force_update_database
 from aiogram import Bot, Dispatcher
 from aiogram.fsm.storage.memory import MemoryStorage
 from aiogram.filters import Command
@@ -9,7 +11,7 @@ import app.db.crud as crud
 import app.bot.messages as messages
 from app.bot.utils import get_coordinates
 from air_quality import get_city_by_coords, get_air_pollution_data, get_air_pollution_forecast
-from config import TELEGRAM_BOT_TOKEN, AIR_QUALITY_CHECK_INTERVAL
+from config import TELEGRAM_BOT_TOKEN, AIR_QUALITY_CHECK_INTERVAL, TG_ADMIN_IDs
 from datetime import datetime, time, timedelta
 
 bot = Bot(token=TELEGRAM_BOT_TOKEN)
@@ -21,6 +23,14 @@ keyboard = ReplyKeyboardMarkup(
   keyboard=[
     [KeyboardButton(text="Проверить качество воздуха")],
     [KeyboardButton(text="Отписаться от уведомлений")]
+  ],
+  resize_keyboard=True
+)
+
+# Клавиатура админа
+admin_keyboard = ReplyKeyboardMarkup(
+  keyboard=[
+    [KeyboardButton(text="Обновить все данные карты")],
   ],
   resize_keyboard=True
 )
@@ -58,6 +68,26 @@ async def start(message: Message):
 
   else:
     await message.answer(messages.MESSAGE_COORDINATES_NOT_PROVIDED, reply_markup=keyboard)
+
+# Хэндлер команды /start с кнопками
+@dp.message(Command("admin"))
+async def start(message: Message):
+  if message.from_user.id not in TG_ADMIN_IDs:
+    await message.answer("Вы не имеете доступа к этой функции")
+    return
+
+  logging.info(f"[TELEGRAM BOT] /admin от {message.from_user.id}")
+  await message.answer("Добро пожаловать, господин!", reply_markup=admin_keyboard)
+
+# Хэндлер для обработки текстовых сообщений с кнопок
+@dp.message(lambda message: message.text == "Проверить качество воздуха")
+async def check_air_quality(message: Message):
+  if message.from_user.id not in TG_ADMIN_IDs:
+    await message.answer("Вы не имеете доступа к этой функции")
+    return
+  await message.answer("Обновление данных таблицы Map...")
+  force_update_database()
+  await message.answer("Данные таблицы Map обновлены!", reply_markup=admin_keyboard)
 
 # Хэндлер для обработки текстовых сообщений с кнопок
 @dp.message(lambda message: message.text == "Проверить качество воздуха")
@@ -164,6 +194,27 @@ async def send_notifications():
       logging.error(f"Ошибка в функции отправки уведомлений: {e}")
     
     await asyncio.sleep(AIR_QUALITY_CHECK_INTERVAL)
+
+# Хэндлер для обработки файлов
+@dp.message(lambda message: message.document is not None)
+async def handle_csv_file(message: Message):
+  if message.from_user.id not in TG_ADMIN_IDs:
+    await message.answer("Вы не имеете доступа к этой функции")
+    return
+  
+  # Обработка файла
+  file_id = message.document.file_id
+  file_info = await bot.get_file(file_id)
+  file_url = f"https://api.telegram.org/file/bot{TELEGRAM_BOT_TOKEN}/{file_info.file_path}"
+  # try:
+  async with aiohttp.ClientSession() as session:
+    async with session.get(file_url) as response:
+      file_data = await response.text()
+      csv_data = [line.split(',') for line in file_data.strip().split('\n')]
+      with get_db() as db:
+        locationsAdded = crud.add_locations_from_csv(db, csv_data)
+        await message.answer(f"Успешно! Было добавлено {locationsAdded} мест.")
+      
 
 # Запуск бота
 async def start_bot():
