@@ -69,7 +69,7 @@ async def start(message: Message):
   else:
     await message.answer(messages.MESSAGE_COORDINATES_NOT_PROVIDED, reply_markup=keyboard)
 
-# Хэндлер команды /start с кнопками
+# Хэндлер команды /admin с кнопками
 @dp.message(Command("admin"))
 async def start(message: Message):
   if message.from_user.id not in TG_ADMIN_IDs:
@@ -78,16 +78,6 @@ async def start(message: Message):
 
   logging.info(f"[TELEGRAM BOT] /admin от {message.from_user.id}")
   await message.answer("Добро пожаловать, господин!", reply_markup=admin_keyboard)
-
-# Хэндлер для обработки текстовых сообщений с кнопок
-@dp.message(lambda message: message.text == "Проверить качество воздуха")
-async def check_air_quality(message: Message):
-  if message.from_user.id not in TG_ADMIN_IDs:
-    await message.answer("Вы не имеете доступа к этой функции")
-    return
-  await message.answer("Обновление данных таблицы Map...")
-  force_update_database()
-  await message.answer("Данные таблицы Map обновлены!", reply_markup=admin_keyboard)
 
 # Хэндлер для обработки текстовых сообщений с кнопок
 @dp.message(lambda message: message.text == "Проверить качество воздуха")
@@ -181,7 +171,7 @@ async def send_notifications():
               trend = "улучшение" if forecast > current_aqi else "ухудшение"
               hours = (i + 1) * 1
               await bot.send_message(user.id, 
-              f"🌆 В вашем городе {trend} качества воздуха.\n☁️ Текущий AQI: {current_aqi}")
+              f"🌆 Через {hours} часов в вашем городе значительное {trend} качества воздуха.\n☁️ Текущий AQI: {current_aqi}")
               break
 
           # Регулярное уведомление (в 8:00 и 20:00)
