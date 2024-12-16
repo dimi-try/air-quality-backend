@@ -6,7 +6,7 @@ Base = declarative_base()
 
 class User(Base):
     __tablename__ = "users"
-    id = Column(Integer, primary_key=True, index=True)
+    id = Column(BigInteger, primary_key=True, index=True)
     username = Column(String(100), unique=True, nullable=True)
     first_name = Column(String(100), nullable=True)
     last_name = Column(String(100), nullable=True)
@@ -17,7 +17,7 @@ class User(Base):
 class Subscription(Base):
     __tablename__ = "subscriptions"
     id = Column(Integer, primary_key=True)
-    user_id = Column(Integer, ForeignKey("users.id"), unique=True, nullable=False)  # Unique ограничение
+    user_id = Column(BigInteger, ForeignKey("users.id"), unique=True, nullable=False)  # Unique ограничение
     location_id = Column(Integer, ForeignKey("locations.id"), nullable=False)
 
     # Связи с таблицами Users и Locations
