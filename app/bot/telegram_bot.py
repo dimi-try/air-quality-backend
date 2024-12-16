@@ -156,11 +156,11 @@ async def send_notifications():
                     
           # Экстренное уведомление при значительном изменении AQI
           if previous_aqi and current_aqi != previous_aqi:
-            trend = "улучшение" if current_aqi > previous_aqi else "ухудшение"
+            trend = "ухудшение" if current_aqi > previous_aqi else "улучшение"
             crud.update_location_aqi(db, coordinates, current_aqi)
             await bot.send_message(
               user.id, 
-              f"🌆 В вашем городе {trend} качества воздуха.\n☁️ Текущий AQI: {current_aqi}"
+              f"🌆 В вашем городе {user_city} наблюдается {trend} качества воздуха.\n☁️ Текущий AQI: {current_aqi}"
               )
 
           # Прогноз на ближайшие 6 часов для экстренных уведомлений
@@ -168,10 +168,10 @@ async def send_notifications():
           forecast_aqi = [f['main']['aqi'] for f in forecast_data['list'][:6]]
           for i, forecast in enumerate(forecast_aqi):
             if abs(forecast - current_aqi) >= 2:
-              trend = "улучшение" if forecast > current_aqi else "ухудшение"
+              trend = "ухудшение" if forecast > current_aqi else "улучшение"
               hours = (i + 1) * 1
               await bot.send_message(user.id, 
-              f"🌆 Через {hours} часов в вашем городе значительное {trend} качества воздуха.\n☁️ Текущий AQI: {current_aqi}")
+              f"🌆 Внимание! Через {hours} часов ожидается значительное {trend} качества воздуха в городе {user_city}.\n☁️ Текущий AQI: {current_aqi} Прогнозируемый AQI: {forecast}")
               break
 
           # Регулярное уведомление (в 8:00 и 20:00)
