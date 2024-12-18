@@ -133,7 +133,7 @@ async def handle_location(message: Message):
       current_aqi=current_aqi
     )
   # Ответ на сообщение с геопозицией
-  await message.answer(f"♥️ Спасибо, ваша подписка сохранена!\n📍 Местоположение: {city}\n☁️ Текущий AQI: {current_aqi}", reply_markup=keyboard)
+  await message.answer(f"♥️ Спасибо, ваша подписка сохранена!\n📍 Местоположение: {city}\n🏭 Текущий AQI: {current_aqi}", reply_markup=keyboard)
 
 # Функция отправки уведомлений
 async def send_notifications():
@@ -156,11 +156,11 @@ async def send_notifications():
                     
           # Экстренное уведомление при значительном изменении AQI
           if previous_aqi and current_aqi != previous_aqi:
-            trend = "ухудшение" if current_aqi > previous_aqi else "улучшение"
+            trend = "ухудшение 😷☁️" if current_aqi > previous_aqi else "улучшение ☺️☀️"
             crud.update_location_aqi(db, coordinates, current_aqi)
             await bot.send_message(
               user.id, 
-              f"🌆 В вашем городе {user_city} наблюдается {trend} качества воздуха.\n☁️ Текущий AQI: {current_aqi}"
+              f"В вашем городе {user_city} наблюдается {trend} качества воздуха.\n🏭 Текущий AQI: {current_aqi}"
               )
 
           # Прогноз на ближайшие 6 часов для экстренных уведомлений
@@ -168,10 +168,10 @@ async def send_notifications():
           forecast_aqi = [f['main']['aqi'] for f in forecast_data['list'][:6]]
           for i, forecast in enumerate(forecast_aqi):
             if abs(forecast - current_aqi) >= 2:
-              trend = "ухудшение" if forecast > current_aqi else "улучшение"
+              trend = "ухудшение 😷☁️" if forecast > current_aqi else "улучшение ☺️☀️"
               hours = (i + 1) * 1
               await bot.send_message(user.id, 
-              f"🌆 Внимание! Через {hours} часов ожидается значительное {trend} качества воздуха в городе {user_city}.\n☁️ Текущий AQI: {current_aqi} Прогнозируемый AQI: {forecast}")
+              f"Внимание! Через {hours} часов ожидается значительное {trend} качества воздуха в городе {user_city}.\n🏭 Текущий AQI: {current_aqi} Прогнозируемый AQI: {forecast}")
               break
 
           # Регулярное уведомление (в 8:00 и 20:00)
