@@ -1,7 +1,7 @@
 
 # Информационная система "Мониторинг качества воздуха"
 
-💻 Languages and Tools : ![Технологии](https://skillicons.dev/icons?i=js,html,css,react)
+💻 Languages and Tools : ![Технологии](https://skillicons.dev/icons?i=py,fastapi)
 
 ## Струтктура проекта
 ```
