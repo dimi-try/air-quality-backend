@@ -1,7 +1,6 @@
 
 # Информационную систему мониторинга качества воздуха
-Developed by Stylua Inc (c) Developers
-- [Jenkneo](https://github.com/Jenkneo)
+Developed by Stylua Inc (c) Developer
 - [nuafirytiasewo](https://github.com/nuafirytiasewo)
 
 💻 Languages and Tools : ![Технологии](https://skillicons.dev/icons?i=js,html,css,react)
@@ -23,7 +22,6 @@ weather-app-backend/
 ```
 
 ## Эндпоинты
-*вот эту шляпу надо будет потом переписать под redoc*
 ```
 <your-ip-address>/api
 ├── /get-city  		  # Получение города
@@ -59,6 +57,3 @@ uvicorn main:app --reload
 ```
 docker build -t weather-app-backend .
 ```
-Примечание! 
-Если у вас включен VPN, есть вероятность того, что Docker не подтянет python
-Проект будет развернут и запущен, но пока хз где, потому что это не та ветка блен...
