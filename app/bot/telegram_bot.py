@@ -77,7 +77,7 @@ async def start(message: Message):
     return
 
   logging.info(f"[TELEGRAM BOT] /admin от {message.from_user.id}")
-  await message.answer("Добро пожаловать, господин!", reply_markup=admin_keyboard)
+  await message.answer("Добро пожаловать в админ-панель!", reply_markup=admin_keyboard)
 
 # Хэндлер для обработки текстовых сообщений с кнопок
 @dp.message(lambda message: message.text == "Проверить качество воздуха")
