@@ -1,7 +1,5 @@
 
-# Информационную систему мониторинга качества воздуха
-Developed by Stylua Inc (c) Developer
-- [nuafirytiasewo](https://github.com/nuafirytiasewo)
+# Информационная система "Мониторинг качества воздуха"
 
 💻 Languages and Tools : ![Технологии](https://skillicons.dev/icons?i=js,html,css,react)
 
