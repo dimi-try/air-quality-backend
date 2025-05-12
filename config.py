@@ -12,6 +12,7 @@ TELEGRAM_BOT_TOKEN = os.getenv('TELEGRAM_BOT_TOKEN')
 OPENWEATHER_API_KEY = os.getenv('OPENWEATHER_API_KEY')
 
 # ================= URLS =================
+FRONTEND_URL = os.getenv('FRONTEND_URL')
 GEOCODING_URL = "https://ipinfo.io/{ip}/geo"
 
 OPENWEATHER_URL = "http://api.openweathermap.org"

@@ -6,12 +6,12 @@ from fastapi import FastAPI
 from worker import update_database
 from fastapi.middleware.cors import CORSMiddleware
 from app.bot.telegram_bot import start_bot, send_notifications
+from config import FRONTEND_URL
 
 app = FastAPI()
 
 origins = [
-    "http://localhost:3000",  # Для локальной разработки
-    "https://air.stylua.ru",  # Укажите домен фронтенда
+    FRONTEND_URL
 ]
 
 app.add_middleware(
