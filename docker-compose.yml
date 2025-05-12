@@ -4,14 +4,15 @@ services:
   backend: # Сервис бэкенда
     image: ${DOCKER_HUB_USER}/air-quality-backend:latest # Образ бэкенда из Docker Hub
     environment: # Переменные окружения для бэкенда
-      DATABASE_USERNAME: ${DATABASE_USERNAME} # Имя пользователя БД
-      DATABASE_PASSWORD: ${DATABASE_PASSWORD} # Пароль БД
-      DATABASE_HOST: ${DATABASE_HOST}         # Хост БД (имя сервиса postgres)
-      DATABASE_PORT: ${DATABASE_PORT}         # Порт БД внутри контейнера
-      DATABASE_NAME: ${DATABASE_NAME}         # Название базы данных
+      DATABASE_USERNAME: ${DATABASE_USERNAME}     # Имя пользователя БД
+      DATABASE_PASSWORD: ${DATABASE_PASSWORD}     # Пароль БД
+      DATABASE_HOST: ${DATABASE_HOST}             # Хост БД (имя сервиса postgres)
+      DATABASE_PORT: ${DATABASE_PORT}             # Порт БД внутри контейнера
+      DATABASE_NAME: ${DATABASE_NAME}             # Название базы данных
       OPENWEATHER_API_KEY: ${OPENWEATHER_API_KEY} # Ключ API OpenWeather
       TELEGRAM_BOT_TOKEN: ${TELEGRAM_BOT_TOKEN}   # Токен Telegram-бота
       TG_ADMIN_IDS: ${TG_ADMIN_IDS}               # ID администраторов Telegram
+      FRONTEND_URL: ${FRONTEND_URL}           # Хост фронтенда
     depends_on: [ postgres ] # Зависимость от сервиса postgres
     ports: [ "${BACKEND_HOST_PORT}:8000" ] # Порт хоста:порт контейнера
     networks: [ network ] # Подключение к сети
