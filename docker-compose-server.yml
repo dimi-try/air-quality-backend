@@ -1,0 +1,41 @@
+version: '3.8'
+
+services:
+  backend: # Сервис бэкенда
+    image: ${DOCKER_HUB_USER}/air-quality-backend:latest # Образ бэкенда из Docker Hub
+    environment: # Переменные окружения для бэкенда
+      DATABASE_USERNAME: ${DATABASE_USERNAME}     # Имя пользователя БД
+      DATABASE_PASSWORD: ${DATABASE_PASSWORD}     # Пароль БД
+      DATABASE_HOST: ${DATABASE_HOST}             # Хост БД (имя сервиса postgres)
+      DATABASE_PORT: ${DATABASE_PORT}             # Порт БД внутри контейнера
+      DATABASE_NAME: ${DATABASE_NAME}             # Название базы данных
+      OPENWEATHER_API_KEY: ${OPENWEATHER_API_KEY} # Ключ API OpenWeather
+      TELEGRAM_BOT_TOKEN: ${TELEGRAM_BOT_TOKEN}   # Токен Telegram-бота
+      TG_ADMIN_IDS: ${TG_ADMIN_IDS}               # ID администраторов Telegram
+      FRONTEND_URL: ${FRONTEND_URL}           # Хост фронтенда
+    depends_on: [ postgres ] # Зависимость от сервиса postgres
+    ports: [ "${BACKEND_HOST_PORT}:8000" ] # Порт хоста:порт контейнера
+    networks: [ network ] # Подключение к сети
+
+  frontend: # Сервис фронтенда
+    image: ${DOCKER_HUB_USER}/air-quality-frontend:latest # Образ фронтенда
+    ports: [ "${FRONTEND_HOST_PORT}:80" ] # Порт хоста:порт контейнера
+    depends_on: [ backend ] # Зависимость от бэкенда
+    networks: [ network ] # Подключение к сети
+
+  postgres: # Сервис базы данных PostgreSQL
+    image: postgres:latest # Официальный образ PostgreSQL
+    environment: # Переменные окружения для PostgreSQL
+      POSTGRES_USER: ${DATABASE_USERNAME} # Имя пользователя (совпадает с бэкендом)
+      POSTGRES_PASSWORD: ${DATABASE_PASSWORD} # Пароль (совпадает с бэкендом)
+      POSTGRES_DB: ${DATABASE_NAME} # Название базы данных (совпадает с бэкендом)
+    ports: [ "${POSTGRES_HOST_PORT}:5432" ] # Порт хоста:порт контейнера
+    volumes: [ postgres_data:/var/lib/postgresql/data ] # Том для хранения данных
+    networks: [ network ] # Подключение к сети
+
+volumes:
+  postgres_data: # Том для данных PostgreSQL
+
+networks:
+  network: # Сеть для связи сервисов
+    driver: bridge # Драйвер сети (по умолчанию)
