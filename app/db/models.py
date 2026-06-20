@@ -32,9 +32,10 @@ class Location(Base):
     latitude = Column(Float, nullable=False)
     aqi = Column(Integer, nullable=True)
     radius = Column(Integer, nullable=True)
+    timezone_offset = Column(Integer, nullable=True)  # Смещение часового пояса в секундах от UTC
     created_by = Column(
-        String(20), 
-        nullable=False, 
+        String(20),
+        nullable=False,
         default="default"
     )
 

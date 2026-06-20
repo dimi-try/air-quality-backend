@@ -11,9 +11,9 @@ import app.db.crud as crud
 import app.bot.messages as messages
 from app.bot.utils import get_coordinates
 from app.bot.aqi_utils import get_aqi_info, format_aqi_message
-from air_quality import get_city_by_coords, get_air_pollution_data, get_air_pollution_forecast
+from air_quality import get_city_by_coords, get_air_pollution_data, get_air_pollution_forecast, get_timezone_offset
 from config import TELEGRAM_BOT_TOKEN, AIR_QUALITY_CHECK_INTERVAL, TG_ADMIN_IDs
-from datetime import datetime, time, timedelta
+from datetime import datetime, time, timedelta, timezone
 
 bot = Bot(token=TELEGRAM_BOT_TOKEN)
 storage = MemoryStorage()
@@ -44,10 +44,14 @@ async def start(message: Message):
   print("coordinates: ", coordinates)
 
   if coordinates:
-    try:            
+    try:
       city = await get_city_by_coords(coordinates["lat"], coordinates["lon"])
+      timezone_offset = await get_timezone_offset(coordinates["lat"], coordinates["lon"])
       air_data = await get_air_pollution_data(coordinates["lat"], coordinates["lon"])
       current_aqi = air_data['list'][0]['main']['aqi']
+      
+      # Добавляем timezone_offset в coordinates для сохранения в БД
+      coordinates["timezone_offset"] = timezone_offset
 
       with get_db() as db:
         crud.create_or_update_subscription(
@@ -125,7 +129,8 @@ async def handle_location(message: Message):
   
   # Сохраняем данные в базе
   city = await get_city_by_coords(latitude, longitude)
-  coordinates = {"lat": latitude, "lon": longitude}
+  timezone_offset = await get_timezone_offset(latitude, longitude)
+  coordinates = {"lat": latitude, "lon": longitude, "timezone_offset": timezone_offset}
   air_data = await get_air_pollution_data(latitude, longitude)
   current_aqi = air_data['list'][0]['main']['aqi']
   aqi_info = get_aqi_info(current_aqi)
@@ -146,31 +151,65 @@ async def handle_location(message: Message):
 
 # Функция отправки уведомлений
 async def send_notifications():
+  """
+  Отправляет уведомления пользователям с учётом их часового пояса.
+  Регулярные уведомления отправляются в 8:00 и 20:00 по локальному времени пользователя.
+  Экстренные уведомления отправляются при значительном изменении AQI.
+  """
+  # Отслеживание последнего времени отправки регулярных уведомлений для каждого пользователя
+  # Ключ: user_id, значение: кортеж (last_morning_sent_date, last_evening_sent_date)
+  last_regular_notification = {}
+  
   while True:
-    now = datetime.now()
-    next_8am = datetime.combine(now.date(), time(8)) + timedelta(days=(now.hour >= 8))
-    next_8pm = datetime.combine(now.date(), time(20)) + timedelta(days=(now.hour >= 20))
-    next_regular_notification_time = min(next_8am, next_8pm)
+    now_utc = datetime.now(timezone.utc)
 
     try:
       with get_db() as db:
         users = crud.get_all_users(db)
         for user in users:
-          previous_aqi = user.subscription.location.aqi
-          user_city = user.subscription.location.city
-          coordinates = {'lon': user.subscription.location.longitude, 'lat': user.subscription.location.latitude}
+          if not user.subscription or not user.subscription.location:
+            continue
+            
+          location = user.subscription.location
+          previous_aqi = location.aqi
+          user_city = location.city
+          coordinates = {'lon': location.longitude, 'lat': location.latitude}
+          
+          # Обновляем timezone_offset по координатам (на случай если локация была создана без него)
+          new_timezone_offset = await get_timezone_offset(coordinates['lat'], coordinates['lon'])
+          if location.timezone_offset != new_timezone_offset:
+            location.timezone_offset = new_timezone_offset
+            db.commit()
+          
+          # Получаем смещение часового пояса пользователя (в секундах)
+          timezone_offset = location.timezone_offset or 0
+          user_tz = timezone(timedelta(seconds=timezone_offset))
+          
+          # Текущее локальное время пользователя
+          user_local_time = now_utc.astimezone(user_tz)
+          user_local_hour = user_local_time.hour
+          user_local_date = user_local_time.date()
 
           air_data = await get_air_pollution_data(coordinates['lat'], coordinates['lon'])
           current_aqi = air_data['list'][0]['main']['aqi']
           aqi_info = get_aqi_info(current_aqi)
-                    
+          
+          # Инициализируем отслеживание для нового пользователя
+          if user.id not in last_regular_notification:
+            last_regular_notification[user.id] = {
+              'last_morning_date': None,  # Дата последней утренней отправки
+              'last_evening_date': None   # Дата последней вечерней отправки
+            }
+          
+          user_notif_state = last_regular_notification[user.id]
+          
           # Экстренное уведомление при значительном изменении AQI
           if previous_aqi and current_aqi != previous_aqi:
             trend = "ухудшение 😷☁️" if current_aqi > previous_aqi else "улучшение ☺️☀️"
             crud.update_location_aqi(db, coordinates, current_aqi)
             await bot.send_message(
-              user.id, 
-              f"Внимание! Прямо сейчас в городе {user_city} наблюдается {trend} качества воздуха!\n🏭 Текущий AQI: {current_aqi} {aqi_info['emoji']} ({aqi_info['description']})"
+              user.id,
+              f"Внимание! Прямо сейчас в {user_city} наблюдается {trend} качества воздуха!\n🏭 Текущий AQI: {current_aqi} {aqi_info['emoji']} ({aqi_info['description']})"
               )
 
           # Прогноз на ближайшие 6 часов для экстренных уведомлений
@@ -181,18 +220,29 @@ async def send_notifications():
               trend = "ухудшение 😷☁️" if forecast > current_aqi else "улучшение ☺️☀️"
               hours = (i + 1) * 1
               forecast_info = get_aqi_info(forecast)
-              await bot.send_message(user.id, 
-              f"Внимание! Через {hours} часов ожидается значительное {trend} качества воздуха в городе {user_city}.\n🏭 Текущий AQI: {current_aqi} {aqi_info['emoji']} ({aqi_info['description']})\n🏭 Прогнозируемый AQI: {forecast} {forecast_info['emoji']} ({forecast_info['description']})")
+              await bot.send_message(user.id,
+              f"Внимание! Через {hours} часов ожидается значительное {trend} качества воздуха в {user_city}.\n🏭 Текущий AQI: {current_aqi} {aqi_info['emoji']} ({aqi_info['description']})\n🏭 Прогнозируемый AQI: {forecast} {forecast_info['emoji']} ({forecast_info['description']})")
               break
 
-          # Регулярное уведомление (в 8:00 и 20:00)
-          if now >= next_regular_notification_time:
-            trend = "ухудшение" if current_aqi >= 3 else "нормальный уровень"
-            await bot.send_message(
-              user.id,
-              f"Ежедневный отчет: качество воздуха в {user_city} {trend}. Текущий AQI: {current_aqi} {aqi_info['emoji']} ({aqi_info['description']})"
-            )
-            next_regular_notification_time += timedelta(hours=12)  # Следующее уведомление через 12 часов
+          # Регулярное утреннее уведомление (8:00 по локальному времени)
+          if 8 <= user_local_hour < 9:
+            if user_notif_state['last_morning_date'] != user_local_date:
+              trend = "ухудшение" if current_aqi >= 3 else "нормальный уровень"
+              await bot.send_message(
+                user.id,
+                f"☀️ Утренний отчет: {trend} качества воздуха в {user_city}. Текущий AQI: {current_aqi} {aqi_info['emoji']} ({aqi_info['description']})"
+              )
+              user_notif_state['last_morning_date'] = user_local_date
+          
+          # Регулярное вечернее уведомление (20:00 по локальному времени)
+          if 20 <= user_local_hour < 21:
+            if user_notif_state['last_evening_date'] != user_local_date:
+              trend = "ухудшение" if current_aqi >= 3 else "нормальный уровень"
+              await bot.send_message(
+                user.id,
+                f"🌙 Вечерний отчет: {trend} качества воздуха в {user_city}. Текущий AQI: {current_aqi} {aqi_info['emoji']} ({aqi_info['description']})"
+              )
+              user_notif_state['last_evening_date'] = user_local_date
 
     except Exception as e:
       logging.error(f"Ошибка в функции отправки уведомлений: {e}")
