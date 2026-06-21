@@ -44,15 +44,23 @@ def create_or_update_subscription(
     if not location:
         # Если локации нет, создаем новую
         location = Location(
-            city=city, 
-            longitude=coordinates['lon'], 
-            latitude=coordinates['lat'], 
+            city=city,
+            longitude=coordinates['lon'],
+            latitude=coordinates['lat'],
             aqi=current_aqi,
+            timezone_offset=coordinates.get('timezone_offset'),
             created_by="telegram_user"
         )
         db.add(location)  # Добавляем новую локацию
         db.commit()
         db.refresh(location)
+    else:
+        # Если локация существует, обновляем timezone_offset если он передан
+        if coordinates.get('timezone_offset') is not None:
+            location.timezone_offset = coordinates.get('timezone_offset')
+            location.aqi = current_aqi
+            db.commit()
+            db.refresh(location)
 
     # Проверяем наличие подписки для текущего пользователя и локации
     subscription = (
@@ -64,8 +72,10 @@ def create_or_update_subscription(
     )
 
     if subscription:
-        # Если подписка существует, обновляем значение AQI для локации
+        # Если подписка существует, обновляем значение AQI и timezone_offset для локации
         subscription.location.aqi = current_aqi
+        if coordinates.get('timezone_offset') is not None:
+            subscription.location.timezone_offset = coordinates.get('timezone_offset')
         db.commit()
         db.refresh(subscription)
         return subscription

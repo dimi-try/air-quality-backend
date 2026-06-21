@@ -4,11 +4,11 @@ services:
   backend: # Сервис бэкенда
     image: ${DOCKER_HUB_USER}/air-quality-backend:latest # Образ бэкенда из Docker Hub
     environment: # Переменные окружения для бэкенда
-      DATABASE_USERNAME: ${DATABASE_USERNAME}     # Имя пользователя БД
-      DATABASE_PASSWORD: ${DATABASE_PASSWORD}     # Пароль БД
-      DATABASE_HOST: ${DATABASE_HOST}             # Хост БД (имя сервиса postgres)
-      DATABASE_PORT: ${DATABASE_PORT}             # Порт БД внутри контейнера
-      DATABASE_NAME: ${DATABASE_NAME}             # Название базы данных
+      POSTGRES_USER: ${POSTGRES_USER}     # Имя пользователя БД
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}     # Пароль БД
+      POSTGRES_HOST: ${POSTGRES_HOST}             # Хост БД (имя сервиса postgres)
+      POSTGRES_PORT: ${POSTGRES_PORT}             # Порт БД внутри контейнера
+      POSTGRES_DB: ${POSTGRES_DB}             # Название базы данных
       OPENWEATHER_API_KEY: ${OPENWEATHER_API_KEY} # Ключ API OpenWeather
       TELEGRAM_BOT_TOKEN: ${TELEGRAM_BOT_TOKEN}   # Токен Telegram-бота
       TG_ADMIN_IDS: ${TG_ADMIN_IDS}               # ID администраторов Telegram
@@ -26,11 +26,11 @@ services:
   postgres: # Сервис базы данных PostgreSQL
     image: postgres:latest # Официальный образ PostgreSQL
     environment: # Переменные окружения для PostgreSQL
-      POSTGRES_USER: ${DATABASE_USERNAME} # Имя пользователя (совпадает с бэкендом)
-      POSTGRES_PASSWORD: ${DATABASE_PASSWORD} # Пароль (совпадает с бэкендом)
-      POSTGRES_DB: ${DATABASE_NAME} # Название базы данных (совпадает с бэкендом)
-    ports: [ "${POSTGRES_HOST_PORT}:5432" ] # Порт хоста:порт контейнера
-    volumes: [ postgres_data:/var/lib/postgresql/data ] # Том для хранения данных
+      POSTGRES_USER: ${POSTGRES_USER} # Имя пользователя (совпадает с бэкендом)
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD} # Пароль (совпадает с бэкендом)
+      POSTGRES_DB: ${POSTGRES_DB} # Название базы данных (совпадает с бэкендом)
+    ports: [ "${POSTGRES_PORT}:5432" ] # Порт хоста:порт контейнера
+    volumes: [ postgres_data:/var/lib/postgresql ] # Том для хранения данных
     networks: [ network ] # Подключение к сети
 
 volumes:
