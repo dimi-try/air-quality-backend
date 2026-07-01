@@ -104,6 +104,155 @@ docker push <your-dockerhub>
 ```
 docker build -t air-quality-backend .
 ```
+
+---
+## 🗄 Резервное копирование базы данных
+
+### 📤 Создание резервной копии
+
+1️⃣ Проверить, существует ли бэкап уже на сервере
+```
+find / -type f -name "*air_quality*" 2>/dev/null
+```
+
+2️⃣ Заходим в контейнер с PostgreSQL:
+```
+docker exec -it air-postgres-1 bash
+```
+
+3️⃣ Делаем дамп базы:
+```
+pg_dump -U POSTGRES_USER -d air_quality -Fc > /tmp/air_quality_backup.dump
+```
+
+4️⃣ Выходим из контейнера:
+```
+exit
+```
+
+5️⃣ Копируем дамп из контейнера на сервер:
+```
+docker cp air-postgres-1:/tmp/air_quality_backup.dump ./air_quality_backup.dump
+```
+
+6️⃣ Скачиваем дамп на локальную машину:
+
+👉 Windows (PowerShell):
+
+```
+scp user@server:./air_quality_backup.dump C:\Users\USER\Downloads\
+```
+
+👉 Linux/macOS:
+
+```
+scp user@server:./air_quality_backup.dump ~/Downloads/
+```
+
+7️⃣ Подключаемся снова к серверу и чистим временные файлы:
+
+Удаляем бэкап на сервере:
+``` 
+rm ./air_quality_backup.dump  
+``` 
+Заходим в контейнер
+``` 
+docker exec -it air-postgres-1 bash
+```
+Удаляем бэкап с контейнера
+```
+rm /tmp/air_quality_backup.dump
+```
+
+8️⃣ Выходим из контейнера:
+```
+exit
+```
+
+9️⃣ Проверить, существует ли бэкап еще на сервере
+```
+find / -type f -name "*air_quality*" 2>/dev/null
+```
+
+---
+
+### 📥 Восстановление из резервной копии
+
+1️⃣ Проверить, существует ли бэкап уже на сервере
+```
+find / -type f -name "*air_quality*" 2>/dev/null
+```
+
+2️⃣ Загружаем дамп на сервер:
+
+👉 Windows (PowerShell):
+
+```
+scp C:\Users\USER\Downloads\air_quality_backup.dump user@server:./air_quality_backup.dump
+```
+
+👉 Linux/macOS:
+
+```
+scp -r ~/Downloads/air_quality_backup.dump user@server:./air_quality_backup.dump
+```
+
+3️⃣ Копируем дамп в контейнер:
+```
+docker cp ./air_quality_backup.dump air-postgres-1:/tmp/air_quality_backup.dump
+```
+
+4️⃣ Удаляем старую базу и создаём новую:
+
+Останавливаем бэк
+```
+docker stop air-backend-1
+```
+Дропаем бдшку
+```
+docker exec -it air-postgres-1 psql -U POSTGRES_USER -d postgres -c "DROP DATABASE IF EXISTS air_quality;"
+```
+Запускаем заново бэк
+```
+docker start air-backend-1
+```
+Пересоздаем бдшку
+```
+docker exec -it air-postgres-1 psql -U POSTGRES_USER -d postgres -c "CREATE DATABASE air_quality;"
+
+```
+
+5️⃣ Восстанавливаем базу из дампа:
+
+```
+docker exec -i air-postgres-1 pg_restore -U POSTGRES_USER -d air_quality --verbose /tmp/air_quality_backup.dump
+```
+
+6️⃣ Подключаемся снова к серверу и чистим временные файлы:
+
+Удаляем бэкап на сервере:
+``` 
+rm ./air_quality_backup.dump  
+``` 
+Заходим в контейнер
+``` 
+docker exec -it air-postgres-1 bash
+```
+Удаляем бэкап с контейнера
+```
+rm /tmp/air_quality_backup.dump
+```
+
+7️⃣ Выходим из контейнера:
+```
+exit
+```
+
+8️⃣ Проверить, существует ли бэкап еще на сервере
+```
+find / -type f -name "*air_quality*" 2>/dev/null
+```
+
 ---
 ## 🛠 Полезные команды
 
